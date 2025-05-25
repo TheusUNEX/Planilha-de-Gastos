@@ -57,9 +57,25 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // Ordenar por ano e mês
+    const listaOrdenada = [...lista].sort((a, b) => {
+      const dataA = new Date(`${a.ano}-${converterMesParaNumero(a.mes)}-01`);
+      const dataB = new Date(`${b.ano}-${converterMesParaNumero(b.mes)}-01`);
+      return dataA - dataB;
+    });
+
+    // Agrupar por mês
+    const totaisPorMes = {};
+    listaOrdenada.forEach(gasto => {
+      const chave = `${gasto.ano}-${gasto.mes}`;
+      if (!totaisPorMes[chave]) totaisPorMes[chave] = 0;
+      totaisPorMes[chave] += parseFloat(gasto.valor);
+    });
+
+    // Criar tabela
     const tabela = document.createElement("table");
     tabela.className = "table table-striped table-dark mt-4";
-    const tbody = lista.map((gasto, index) => `
+    const tbody = listaOrdenada.map((gasto, index) => `
       <tr>
         <td>${gasto.ano}</td>
         <td>${gasto.mes}</td>
@@ -87,6 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <tbody>${tbody}</tbody>
     `;
 
+    // Total geral
     const total = lista.reduce((acc, gasto) => acc + parseFloat(gasto.valor), 0);
     const totalHTML = `
       <div class="mt-3 text-end">
@@ -94,10 +111,41 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     `;
 
+    // Variação percentual mês a mês
+    const chavesOrdenadas = Object.keys(totaisPorMes).sort((a, b) => {
+      return new Date(`${a}-01`) - new Date(`${b}-01`);
+    });
+
+    let variacaoHTML = '';
+    for (let i = 1; i < chavesOrdenadas.length; i++) {
+      const mesAtual = chavesOrdenadas[i];
+      const mesAnterior = chavesOrdenadas[i - 1];
+      const totalAtual = totaisPorMes[mesAtual];
+      const totalAnterior = totaisPorMes[mesAnterior];
+
+      if (totalAnterior > 0) {
+        const variacao = ((totalAtual - totalAnterior) / totalAnterior) * 100;
+        const cor = variacao >= 0 ? 'text-danger' : 'text-success';
+        const sinal = variacao >= 0 ? '+' : '-';
+
+        variacaoHTML += `
+          <p class="${cor}">
+            ${mesAtual} vs ${mesAnterior}: ${sinal}${Math.abs(variacao).toFixed(1)}%
+          </p>
+        `;
+      }
+    }
+
+    const blocoVariacao = variacaoHTML
+      ? `<div class="mt-3"><h6>Variação mensal:</h6>${variacaoHTML}</div>`
+      : '';
+
+    // Renderização final
     listaGastos.appendChild(tabela);
     listaGastos.insertAdjacentHTML("beforeend", totalHTML);
+    listaGastos.insertAdjacentHTML("beforeend", blocoVariacao);
 
-    // Adiciona eventos aos botões após renderizar
+    // Botões de ação
     document.querySelectorAll(".excluir-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const index = parseInt(btn.getAttribute("data-index"));
@@ -121,6 +169,15 @@ document.addEventListener("DOMContentLoaded", () => {
         editandoIndex = index;
       });
     });
+  }
+
+  // Utilitário: converter mês por extenso para número
+  function converterMesParaNumero(mes) {
+    const meses = [
+      "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+      "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    ];
+    return String(meses.indexOf(mes) + 1).padStart(2, '0');
   }
 
   renderizarGastos(gastos);
